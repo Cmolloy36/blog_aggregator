@@ -33,11 +33,15 @@ func main() {
 		FunctionMap: make(map[string]func(*commands.State, commands.Command) error),
 	}
 
+	// Handler Commands
+
 	commandsStruct.Register("login", commands.HandlerLogin)
 
 	commandsStruct.Register("register", commands.HandlerRegister)
 
-	// commandsStruct.Register("reset", commands.HandlerReset)
+	commandsStruct.Register("reset", commands.HandlerReset)
+
+	commandsStruct.Register("users", commands.HandlerUsers)
 
 	args := os.Args
 	if len(args) < 2 {

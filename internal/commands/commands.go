@@ -45,6 +45,31 @@ func (c *Commands) Run(s *State, cmd Command) error {
 	return nil
 }
 
+func HandlerUsers(s *State, cmd Command) error {
+	if len(cmd.Args) != 0 {
+		log.Fatalf("error: \"list\" does not expect an additional argument")
+	}
+
+	usersList, err := s.Db.GetUsers(context.Background())
+	if err != nil {
+		return fmt.Errorf("%w", err)
+	}
+
+	if len(usersList) == 0 {
+		return fmt.Errorf("there are no users in the database")
+	}
+
+	for _, user := range usersList {
+		append := ""
+		if user == s.ConfigStruct.Current_user_name {
+			append = " (current)"
+		}
+		fmt.Printf("* %s\n", user+append)
+	}
+
+	return nil
+}
+
 func HandlerLogin(s *State, cmd Command) error {
 	if len(cmd.Args) == 0 {
 		log.Fatalf("error: \"login\" expects a username argument")
@@ -99,5 +124,16 @@ func HandlerRegister(s *State, cmd Command) error {
 	// fmt.Printf("%v", s.ConfigStruct.Current_user_name)
 	fmt.Printf("The user has been registered: %s\n", s.ConfigStruct.Current_user_name)
 	s.ConfigStruct.SetUser(s.ConfigStruct.Current_user_name)
+	return nil
+}
+
+func HandlerReset(s *State, cmd Command) error {
+	err := s.Db.ResetUsers(context.Background())
+	if err != nil {
+		log.Fatalf("unexpected error occurred: %v", err)
+	}
+
+	fmt.Println("The database has been reset.")
+
 	return nil
 }
