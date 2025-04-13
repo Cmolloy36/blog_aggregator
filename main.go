@@ -1,11 +1,14 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"os"
 
 	"github.com/Cmolloy36/blog_aggregator/internal/commands"
 	"github.com/Cmolloy36/blog_aggregator/internal/config"
+	"github.com/Cmolloy36/blog_aggregator/internal/database"
+	_ "github.com/lib/pq"
 )
 
 func main() {
@@ -14,7 +17,15 @@ func main() {
 		fmt.Println(fmt.Errorf("error: %w", err))
 	}
 
+	db, err := sql.Open("postgres", cfg.Db_url)
+	if err != nil {
+		fmt.Println(fmt.Errorf("error: %w", err))
+	}
+
+	dbQueries := database.New(db)
+
 	st := &commands.State{
+		Db:           dbQueries,
 		ConfigStruct: &cfg,
 	}
 
@@ -23,6 +34,10 @@ func main() {
 	}
 
 	commandsStruct.Register("login", commands.HandlerLogin)
+
+	commandsStruct.Register("register", commands.HandlerRegister)
+
+	// commandsStruct.Register("reset", commands.HandlerReset)
 
 	args := os.Args
 	if len(args) < 2 {
