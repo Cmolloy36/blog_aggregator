@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/Cmolloy36/blog_aggregator/internal/commands"
+	"github.com/Cmolloy36/blog_aggregator/commands"
 	"github.com/Cmolloy36/blog_aggregator/internal/config"
 	"github.com/Cmolloy36/blog_aggregator/internal/database"
 	_ "github.com/lib/pq"
@@ -34,6 +34,10 @@ func main() {
 	}
 
 	// Handler Commands
+
+	commandsStruct.Register("addfeed", commands.HandlerAddFeed)
+
+	commandsStruct.Register("agg", commands.HandlerAggregator)
 
 	commandsStruct.Register("login", commands.HandlerLogin)
 
