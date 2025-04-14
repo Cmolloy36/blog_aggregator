@@ -41,6 +41,10 @@ func main() {
 
 	commandsStruct.Register("feeds", commands.HandlerFeeds)
 
+	commandsStruct.Register("follow", commands.HandlerFollow)
+
+	commandsStruct.Register("following", commands.HandlerFollowing)
+
 	commandsStruct.Register("login", commands.HandlerLogin)
 
 	commandsStruct.Register("register", commands.HandlerRegister)
