@@ -39,6 +39,8 @@ func main() {
 
 	commandsStruct.Register("agg", commands.HandlerAggregator)
 
+	commandsStruct.Register("feeds", commands.HandlerFeeds)
+
 	commandsStruct.Register("login", commands.HandlerLogin)
 
 	commandsStruct.Register("register", commands.HandlerRegister)

@@ -169,6 +169,33 @@ func HandlerAggregator(s *State, cmd Command) error {
 	return nil
 }
 
+func HandlerFeeds(s *State, cmd Command) error {
+	if len(cmd.Args) != 0 {
+		log.Fatalf("error: \"feeds\" does not expect an additional argument")
+	}
+
+	feedsList, err := s.Db.GetFeeds(context.Background())
+	if err != nil {
+		return fmt.Errorf("%w", err)
+	}
+
+	if len(feedsList) == 0 {
+		return fmt.Errorf("there are no feeds in the database")
+	}
+
+	for _, feed := range feedsList {
+		username, err := s.Db.GetFeedUser(context.Background(), feed.Url)
+		if err != nil {
+			return fmt.Errorf("%w", err)
+		}
+		fmt.Printf("Feed Name: %s\n", feed.Name)
+		fmt.Printf("Feed url: %s\n", feed.Url)
+		fmt.Printf("Feed user: %s\n\n", username)
+	}
+
+	return nil
+}
+
 func HandlerLogin(s *State, cmd Command) error {
 	if len(cmd.Args) == 0 {
 		log.Fatalf("error: \"login\" expects a username argument")
@@ -239,7 +266,7 @@ func HandlerReset(s *State, cmd Command) error {
 
 func HandlerUsers(s *State, cmd Command) error {
 	if len(cmd.Args) != 0 {
-		log.Fatalf("error: \"list\" does not expect an additional argument")
+		log.Fatalf("error: \"users\" does not expect an additional argument")
 	}
 
 	usersList, err := s.Db.GetUsers(context.Background())

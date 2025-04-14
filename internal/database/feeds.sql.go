@@ -74,6 +74,53 @@ func (q *Queries) GetFeed(ctx context.Context, url string) (Feed, error) {
 	return i, err
 }
 
+const getFeedUser = `-- name: GetFeedUser :one
+SELECT name FROM users
+WHERE id = (SELECT user_id FROM feeds
+WHERE url = $1)
+`
+
+func (q *Queries) GetFeedUser(ctx context.Context, url string) (string, error) {
+	row := q.db.QueryRowContext(ctx, getFeedUser, url)
+	var name string
+	err := row.Scan(&name)
+	return name, err
+}
+
+const getFeeds = `-- name: GetFeeds :many
+SELECT id, created_at, updated_at, name, url, user_id FROM feeds
+`
+
+func (q *Queries) GetFeeds(ctx context.Context) ([]Feed, error) {
+	rows, err := q.db.QueryContext(ctx, getFeeds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Feed
+	for rows.Next() {
+		var i Feed
+		if err := rows.Scan(
+			&i.ID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Name,
+			&i.Url,
+			&i.UserID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getUserFeeds = `-- name: GetUserFeeds :many
 SELECT id, created_at, updated_at, name, url, user_id FROM feeds
 WHERE user_id = $1
