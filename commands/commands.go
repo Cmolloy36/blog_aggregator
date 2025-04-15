@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"html"
 	"io"
-	"log"
 	"net/http"
 	"time"
 
@@ -100,6 +99,13 @@ func MiddlewareLoggedIn(handler func(s *State, cmd Command, user database.User) 
 	return func(s *State, cmd Command) error {
 		currentUserName := s.ConfigStruct.Current_user_name
 
+		numRecords, err := s.Db.GetNumRecords(context.Background())
+		if err != nil {
+			return fmt.Errorf("unexpected error occurred: %v", err)
+		} else if numRecords == 0 {
+			return fmt.Errorf("no users have been registered")
+		}
+
 		user, err := s.Db.GetUser(context.Background(), currentUserName)
 		if err != nil {
 			if !errors.Is(err, sql.ErrNoRows) {
@@ -134,7 +140,7 @@ func (c *Commands) Run(s *State, cmd Command) error {
 
 func HandlerAddFeed(s *State, cmd Command, user database.User) error {
 	if len(cmd.Args) != 2 {
-		log.Fatalf("error: \"addfeed\" expects feed name & feed url")
+		return fmt.Errorf("error: \"addfeed\" expects feed name & feed url")
 	}
 
 	feedName := cmd.Args[0]
@@ -151,7 +157,7 @@ func HandlerAddFeed(s *State, cmd Command, user database.User) error {
 
 	feed, err := s.Db.CreateFeed(context.Background(), createFeedParams)
 	if err != nil {
-		log.Fatalf("unexpected error occurred: %v", err)
+		return fmt.Errorf("unexpected error occurred: %v", err)
 	}
 
 	createFeedFollowParams := database.CreateFeedFollowParams{
@@ -164,7 +170,7 @@ func HandlerAddFeed(s *State, cmd Command, user database.User) error {
 
 	_, err = s.Db.CreateFeedFollow(context.Background(), createFeedFollowParams)
 	if err != nil {
-		log.Fatalf("unexpected error occurred in addFeed CreateFeedFollow: %v", err)
+		return fmt.Errorf("unexpected error occurred in addFeed CreateFeedFollow: %v", err)
 	}
 
 	fmt.Printf("%+v", feed)
@@ -184,7 +190,7 @@ func HandlerAggregator(s *State, cmd Command) error {
 
 func HandlerFeeds(s *State, cmd Command) error {
 	if len(cmd.Args) != 0 {
-		log.Fatalf("error: \"feeds\" does not expect an additional argument")
+		return fmt.Errorf("error: \"feeds\" does not expect an additional argument")
 	}
 
 	feedsList, err := s.Db.GetFeeds(context.Background())
@@ -211,7 +217,7 @@ func HandlerFeeds(s *State, cmd Command) error {
 
 func HandlerFollow(s *State, cmd Command, user database.User) error {
 	if len(cmd.Args) != 1 {
-		log.Fatalf("error: \"follow\" expects a url argument")
+		return fmt.Errorf("error: \"follow\" expects a url argument")
 	}
 
 	feedURL := cmd.Args[0]
@@ -221,10 +227,10 @@ func HandlerFollow(s *State, cmd Command, user database.User) error {
 	feed, err := s.Db.GetFeed(context.Background(), feedURL)
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
-			log.Fatalf("unexpected error occurred: %v", err)
+			return fmt.Errorf("unexpected error occurred: %v", err)
 		}
 	} else if feed == emptyFeed {
-		log.Fatalf("feed at %s does not exist!", feedURL)
+		return fmt.Errorf("feed at %s does not exist", feedURL)
 	}
 
 	createFeedFollowParams := database.CreateFeedFollowParams{
@@ -237,7 +243,7 @@ func HandlerFollow(s *State, cmd Command, user database.User) error {
 
 	_, err = s.Db.CreateFeedFollow(context.Background(), createFeedFollowParams)
 	if err != nil {
-		log.Fatalf("unexpected error occurred: %v", err)
+		return fmt.Errorf("unexpected error occurred: %v", err)
 	}
 
 	fmt.Printf("%s is now following feed \"%s\"\n", user.Name, feed.Name)
@@ -247,16 +253,19 @@ func HandlerFollow(s *State, cmd Command, user database.User) error {
 
 func HandlerFollowing(s *State, cmd Command, user database.User) error {
 	if len(cmd.Args) != 0 {
-		log.Fatalf("error: \"following\" does not expect any arguments")
+		return fmt.Errorf("error: \"following\" does not expect any arguments")
 	}
 
 	followedFeedList, err := s.Db.GetFeedFollowsForUser(context.Background(), user.ID)
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
-			log.Fatalf("unexpected error occurred: %v", err)
-		} else {
-			log.Fatalf("%s does not follow any feeds!", user.Name)
+			return fmt.Errorf("unexpected error occurred: %v", err)
 		}
+	}
+
+	if len(followedFeedList) == 0 {
+		fmt.Printf("%s is not following any feeds", user.Name)
+		return nil
 	}
 
 	fmt.Printf("%s is following:\n", user.Name)
@@ -270,7 +279,7 @@ func HandlerFollowing(s *State, cmd Command, user database.User) error {
 
 func HandlerLogin(s *State, cmd Command) error {
 	if len(cmd.Args) != 1 {
-		log.Fatalf("error: \"login\" expects a username argument")
+		return fmt.Errorf("error: \"login\" expects a username argument")
 	}
 
 	name := cmd.Args[0]
@@ -278,9 +287,9 @@ func HandlerLogin(s *State, cmd Command) error {
 	_, err := s.Db.GetUser(context.Background(), name)
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
-			log.Fatalf("unexpected error occurred: %v", err)
+			return fmt.Errorf("unexpected error occurred: %v", err)
 		} else {
-			log.Fatalf("%s does not exist!", name)
+			return fmt.Errorf("%s does not exist", name)
 		}
 	}
 
@@ -303,10 +312,10 @@ func HandlerRegister(s *State, cmd Command) error {
 	user, err := s.Db.GetUser(context.Background(), name)
 	if err != nil {
 		if !errors.Is(err, sql.ErrNoRows) {
-			log.Fatalf("unexpected error occurred: %v", err)
+			return fmt.Errorf("unexpected error occurred: %v", err)
 		}
 	} else if user != emptyUser {
-		log.Fatalf("%s already exists!", name)
+		return fmt.Errorf("%s already exists", name)
 	}
 
 	userParams := database.CreateUserParams{
@@ -318,7 +327,7 @@ func HandlerRegister(s *State, cmd Command) error {
 
 	_, err = s.Db.CreateUser(context.Background(), userParams)
 	if err != nil {
-		log.Fatalf("unexpected error occurred: %v", err)
+		return fmt.Errorf("unexpected error occurred: %v", err)
 	}
 
 	s.ConfigStruct.Current_user_name = cmd.Args[0]
@@ -331,17 +340,52 @@ func HandlerRegister(s *State, cmd Command) error {
 func HandlerReset(s *State, cmd Command) error {
 	err := s.Db.ResetUsers(context.Background())
 	if err != nil {
-		log.Fatalf("unexpected error occurred: %v", err)
+		return fmt.Errorf("unexpected error occurred: %v", err)
 	}
+
+	s.ConfigStruct.SetUser("")
 
 	fmt.Println("The database has been reset.")
 
 	return nil
 }
 
+func HandlerUnfollow(s *State, cmd Command, user database.User) error {
+	if len(cmd.Args) != 1 {
+		return fmt.Errorf("error: \"unfollow\" expects a url argument")
+	}
+
+	feedURL := cmd.Args[0]
+
+	emptyFeed := database.Feed{}
+
+	feed, err := s.Db.GetFeed(context.Background(), feedURL)
+	if err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("unexpected error occurred: %v", err)
+		}
+	} else if feed == emptyFeed {
+		return fmt.Errorf("feed at %s does not exist", feedURL)
+	}
+
+	unfollowFeedParams := database.UnfollowFeedParams{
+		UserID: user.ID,
+		FeedID: feed.ID,
+	}
+
+	err = s.Db.UnfollowFeed(context.Background(), unfollowFeedParams)
+	if err != nil {
+		return fmt.Errorf("unexpected error occurred: %v", err)
+	}
+
+	fmt.Printf("%s is no longer following feed \"%s\"\n", user.Name, feed.Name)
+
+	return nil
+}
+
 func HandlerUsers(s *State, cmd Command) error {
 	if len(cmd.Args) != 0 {
-		log.Fatalf("error: \"users\" does not expect an additional argument")
+		return fmt.Errorf("error: \"users\" does not expect an additional argument")
 	}
 
 	usersList, err := s.Db.GetUsers(context.Background())

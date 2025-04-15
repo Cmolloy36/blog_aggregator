@@ -51,6 +51,8 @@ func main() {
 
 	commandsStruct.Register("reset", commands.HandlerReset)
 
+	commandsStruct.Register("unfollow", commands.MiddlewareLoggedIn(commands.HandlerUnfollow))
+
 	commandsStruct.Register("users", commands.HandlerUsers)
 
 	args := os.Args

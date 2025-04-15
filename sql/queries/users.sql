@@ -17,3 +17,6 @@ SELECT name FROM users;
 
 -- name: ResetUsers :exec
 DELETE FROM users;
+
+-- name: GetNumRecords :one
+SELECT COUNT(*) FROM users;
