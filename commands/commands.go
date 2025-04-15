@@ -96,6 +96,24 @@ func cleanResHTML(rssFeed *RSSFeed) {
 
 }
 
+func MiddlewareLoggedIn(handler func(s *State, cmd Command, user database.User) error) func(*State, Command) error {
+	return func(s *State, cmd Command) error {
+		currentUserName := s.ConfigStruct.Current_user_name
+
+		user, err := s.Db.GetUser(context.Background(), currentUserName)
+		if err != nil {
+			if !errors.Is(err, sql.ErrNoRows) {
+				return fmt.Errorf("unexpected error occurred: %v", err)
+			} else {
+				return fmt.Errorf("%s does not exist", currentUserName)
+			}
+		}
+
+		return handler(s, cmd, user)
+	}
+
+}
+
 func (c *Commands) Register(name string, f func(*State, Command) error) {
 	c.FunctionMap[name] = f
 }
@@ -114,31 +132,13 @@ func (c *Commands) Run(s *State, cmd Command) error {
 	return nil
 }
 
-func HandlerAddFeed(s *State, cmd Command) error {
+func HandlerAddFeed(s *State, cmd Command, user database.User) error {
 	if len(cmd.Args) != 2 {
 		log.Fatalf("error: \"addfeed\" expects feed name & feed url")
 	}
 
-	cfg, err := config.Read()
-	if err != nil {
-		fmt.Println(fmt.Errorf("error: %w", err))
-	}
-
 	feedName := cmd.Args[0]
 	feedURL := cmd.Args[1]
-
-	currentUserName := cfg.Current_user_name
-
-	emptyUser := database.User{}
-
-	user, err := s.Db.GetUser(context.Background(), currentUserName)
-	if err != nil {
-		if !errors.Is(err, sql.ErrNoRows) {
-			log.Fatalf("unexpected error occurred: %v", err)
-		}
-	} else if user == emptyUser {
-		log.Fatalf("%s does not exist!", currentUserName)
-	}
 
 	createFeedParams := database.CreateFeedParams{
 		ID:        uuid.New(),
@@ -209,31 +209,14 @@ func HandlerFeeds(s *State, cmd Command) error {
 	return nil
 }
 
-func HandlerFollow(s *State, cmd Command) error {
+func HandlerFollow(s *State, cmd Command, user database.User) error {
 	if len(cmd.Args) != 1 {
 		log.Fatalf("error: \"follow\" expects a url argument")
 	}
 
-	cfg, err := config.Read()
-	if err != nil {
-		fmt.Println(fmt.Errorf("error: %w", err))
-	}
-
 	feedURL := cmd.Args[0]
 
-	currentUserName := cfg.Current_user_name
-
-	emptyUser := database.User{}
 	emptyFeed := database.Feed{}
-
-	user, err := s.Db.GetUser(context.Background(), currentUserName)
-	if err != nil {
-		if !errors.Is(err, sql.ErrNoRows) {
-			log.Fatalf("unexpected error occurred: %v", err)
-		}
-	} else if user == emptyUser {
-		log.Fatalf("%s does not exist!", currentUserName)
-	}
 
 	feed, err := s.Db.GetFeed(context.Background(), feedURL)
 	if err != nil {
@@ -262,27 +245,9 @@ func HandlerFollow(s *State, cmd Command) error {
 	return nil
 }
 
-func HandlerFollowing(s *State, cmd Command) error {
+func HandlerFollowing(s *State, cmd Command, user database.User) error {
 	if len(cmd.Args) != 0 {
 		log.Fatalf("error: \"following\" does not expect any arguments")
-	}
-
-	cfg, err := config.Read()
-	if err != nil {
-		fmt.Println(fmt.Errorf("error: %w", err))
-	}
-
-	currentUserName := cfg.Current_user_name
-
-	emptyUser := database.User{}
-
-	user, err := s.Db.GetUser(context.Background(), currentUserName)
-	if err != nil {
-		if !errors.Is(err, sql.ErrNoRows) {
-			log.Fatalf("unexpected error occurred: %v", err)
-		}
-	} else if user == emptyUser {
-		log.Fatalf("%s does not exist!", currentUserName)
 	}
 
 	followedFeedList, err := s.Db.GetFeedFollowsForUser(context.Background(), user.ID)

@@ -35,15 +35,15 @@ func main() {
 
 	// Handler Commands
 
-	commandsStruct.Register("addfeed", commands.HandlerAddFeed)
+	commandsStruct.Register("addfeed", commands.MiddlewareLoggedIn(commands.HandlerAddFeed))
 
 	commandsStruct.Register("agg", commands.HandlerAggregator)
 
 	commandsStruct.Register("feeds", commands.HandlerFeeds)
 
-	commandsStruct.Register("follow", commands.HandlerFollow)
+	commandsStruct.Register("follow", commands.MiddlewareLoggedIn(commands.HandlerFollow))
 
-	commandsStruct.Register("following", commands.HandlerFollowing)
+	commandsStruct.Register("following", commands.MiddlewareLoggedIn(commands.HandlerFollowing))
 
 	commandsStruct.Register("login", commands.HandlerLogin)
 
