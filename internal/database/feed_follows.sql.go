@@ -17,9 +17,9 @@ WITH inserted_feed_follow AS (INSERT INTO feed_follows (id, created_at, updated_
 VALUES (
     $1,
     $2,
+    $2,
     $3,
-    $4,
-    $5
+    $4
 )
 RETURNING id, created_at, updated_at, user_id, feed_id )
 SELECT inserted_feed_follow.id, inserted_feed_follow.created_at, inserted_feed_follow.updated_at, inserted_feed_follow.user_id, inserted_feed_follow.feed_id,
@@ -35,7 +35,6 @@ ON inserted_feed_follow.user_id = users.id
 type CreateFeedFollowParams struct {
 	ID        uuid.UUID
 	CreatedAt time.Time
-	UpdatedAt time.Time
 	UserID    uuid.UUID
 	FeedID    uuid.UUID
 }
@@ -54,7 +53,6 @@ func (q *Queries) CreateFeedFollow(ctx context.Context, arg CreateFeedFollowPara
 	row := q.db.QueryRowContext(ctx, createFeedFollow,
 		arg.ID,
 		arg.CreatedAt,
-		arg.UpdatedAt,
 		arg.UserID,
 		arg.FeedID,
 	)

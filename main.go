@@ -39,6 +39,8 @@ func main() {
 
 	commandsStruct.Register("agg", commands.HandlerAggregator)
 
+	commandsStruct.Register("browse", commands.MiddlewareLoggedIn(commands.HandlerBrowser))
+
 	commandsStruct.Register("feeds", commands.HandlerFeeds)
 
 	commandsStruct.Register("follow", commands.MiddlewareLoggedIn(commands.HandlerFollow))

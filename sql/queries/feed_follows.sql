@@ -3,9 +3,9 @@ WITH inserted_feed_follow AS (INSERT INTO feed_follows (id, created_at, updated_
 VALUES (
     $1,
     $2,
+    $2,
     $3,
-    $4,
-    $5
+    $4
 )
 RETURNING * )
 SELECT inserted_feed_follow.*,

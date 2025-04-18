@@ -9,6 +9,7 @@ import (
 	"html"
 	"io"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/Cmolloy36/blog_aggregator/internal/config"
@@ -120,6 +121,80 @@ func MiddlewareLoggedIn(handler func(s *State, cmd Command, user database.User) 
 
 }
 
+func scrapeFeeds(s *State) error {
+	feed, err := s.Db.GetNextFeedToFetch(context.Background())
+	if err != nil {
+		return fmt.Errorf("unexpected error occurred in scrapeFeeds: %v", err)
+	}
+
+	// When updating the timestamp
+	var lastFetchedAt sql.NullTime
+	lastFetchedAt.Time = time.Now()
+	lastFetchedAt.Valid = true
+
+	markFeedFetchedParams := database.MarkFeedFetchedParams{
+		ID:            feed.ID,
+		LastFetchedAt: lastFetchedAt,
+	}
+
+	err = s.Db.MarkFeedFetched(context.Background(), markFeedFetchedParams)
+	if err != nil {
+		return fmt.Errorf("unexpected error occurred in scrapeFeeds: %v", err)
+	}
+
+	rssFeed, err := fetchFeed(context.Background(), feed.Url)
+	if err != nil {
+		return fmt.Errorf("unexpected error occurred in scrapeFeeds: %v", err)
+	}
+
+	formats := []string{
+		time.RFC1123Z,         // "Mon, 02 Jan 2006 15:04:05 -0700"
+		time.RFC1123,          // "Mon, 02 Jan 2006 15:04:05 MST"
+		time.RFC3339,          // "2006-01-02T15:04:05Z07:00"
+		"2006-01-02 15:04:05", // Custom format
+		"2006-01-02",          // Just date
+	}
+
+	for i, item := range rssFeed.Channel.Item {
+		var title sql.NullString
+		title.String = item.Title
+		title.Valid = true
+
+		var url sql.NullString
+		url.String = item.Link
+		url.Valid = true
+
+		var description sql.NullString
+		description.String = item.Description
+		description.Valid = true
+
+		var publishedAt time.Time
+
+		for _, format := range formats {
+			publishedAt, err = time.Parse(format, item.PubDate)
+			if err == nil {
+				break
+			}
+		}
+
+		createPostParams := database.CreatePostParams{
+			ID:          uuid.New(),
+			CreatedAt:   publishedAt,
+			Title:       title,
+			Url:         url,
+			Description: description,
+			FeedID:      feed.ID,
+		}
+
+		s.Db.CreatePost(context.Background(), createPostParams)
+
+		fmt.Printf("Item %d Title: %s\n", i, item.Title)
+		fmt.Printf("Item %d PubDate: %s, PubDate in time: %v\n\n", i, item.PubDate, publishedAt)
+	}
+
+	return nil
+}
+
 func (c *Commands) Register(name string, f func(*State, Command) error) {
 	c.FunctionMap[name] = f
 }
@@ -149,7 +224,6 @@ func HandlerAddFeed(s *State, cmd Command, user database.User) error {
 	createFeedParams := database.CreateFeedParams{
 		ID:        uuid.New(),
 		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
 		Name:      feedName,
 		Url:       feedURL,
 		UserID:    user.ID,
@@ -163,7 +237,6 @@ func HandlerAddFeed(s *State, cmd Command, user database.User) error {
 	createFeedFollowParams := database.CreateFeedFollowParams{
 		ID:        uuid.New(),
 		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
 		UserID:    user.ID,
 		FeedID:    createFeedParams.ID,
 	}
@@ -179,13 +252,62 @@ func HandlerAddFeed(s *State, cmd Command, user database.User) error {
 }
 
 func HandlerAggregator(s *State, cmd Command) error {
-	rssFeedptr, err := fetchFeed(context.Background(), "https://www.wagslane.dev/index.xml")
-	if err != nil {
-		return fmt.Errorf("%w", err)
+	var time_between_requests time.Duration
+	var err error
+
+	if len(cmd.Args) == 0 {
+		time_between_requests, _ = time.ParseDuration("5s")
+	} else if len(cmd.Args) == 1 {
+		time_between_requests, err = time.ParseDuration(cmd.Args[0])
+		if err != nil {
+			return fmt.Errorf("unexpected error occurred in HandlerAggregator: %v", err)
+		}
+	} else {
+		return fmt.Errorf("error: \"agg\" expects a no arguments or a time argument (1h, 2m, etc.)")
 	}
 
-	fmt.Printf("%+v", rssFeedptr)
+	fmt.Printf("Collecting feeds every %v\n", time_between_requests)
+
+	ticker := time.NewTicker(time_between_requests)
+	for ; ; <-ticker.C {
+		scrapeFeeds(s)
+	}
+
+}
+
+func HandlerBrowser(s *State, cmd Command, user database.User) error {
+	limit := 2
+	var err error
+
+	// fmt.Printf("%d\n", len(cmd.Args))
+	// fmt.Printf("%v\n", reflect.TypeOf(cmd.Args[0]).Kind() == reflect.Int)
+	// fmt.Printf("%v\n", reflect.TypeOf(cmd.Args[0]).Kind())
+
+	if len(cmd.Args) == 1 {
+		limit, err = strconv.Atoi(cmd.Args[0])
+		if err != nil {
+			return fmt.Errorf("unexpected error occurred when parsing limit arg: %v", err)
+		}
+	} else {
+		return fmt.Errorf("error: \"browse\" expects a no arguments or an int limit argument")
+	}
+
+	getPostsForUserParams := database.GetPostsForUserParams{
+		UserID: user.ID,
+		Limit:  int32(limit),
+	}
+
+	posts, err := s.Db.GetPostsForUser(context.Background(), getPostsForUserParams)
+	if err != nil {
+		return fmt.Errorf("unexpected error occurred in HandlerBrowser: %v", err)
+	}
+
+	for i, post := range posts {
+		fmt.Printf("Post %d: %+v", i, post)
+	}
+
 	return nil
+
 }
 
 func HandlerFeeds(s *State, cmd Command) error {
@@ -236,7 +358,6 @@ func HandlerFollow(s *State, cmd Command, user database.User) error {
 	createFeedFollowParams := database.CreateFeedFollowParams{
 		ID:        uuid.New(),
 		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
 		UserID:    user.ID,
 		FeedID:    feed.ID,
 	}
@@ -321,7 +442,6 @@ func HandlerRegister(s *State, cmd Command) error {
 	userParams := database.CreateUserParams{
 		ID:        uuid.New(),
 		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
 		Name:      name,
 	}
 
