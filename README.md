@@ -22,7 +22,7 @@ Install gator using `go install github.com/Cmolloy36/gator@latest`.
 Commands:
 * `addfeed`: Add new feed to collect from
 * `agg`: Run in background, collects and creates posts from feeds
-* `browse`: Browse posts
+* `browse`: Browse posts, include limit
 * `feeds`: View all feeds
 * `follow`: Follow a previously unfollowed feed on current user
 * `following`: See a list of all feeds the current user follows
