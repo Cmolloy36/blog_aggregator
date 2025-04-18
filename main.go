@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/Cmolloy36/blog_aggregator/commands"
-	"github.com/Cmolloy36/blog_aggregator/internal/config"
-	"github.com/Cmolloy36/blog_aggregator/internal/database"
+	"github.com/Cmolloy36/gator/commands"
+	"github.com/Cmolloy36/gator/internal/config"
+	"github.com/Cmolloy36/gator/internal/database"
 	_ "github.com/lib/pq"
 )
 

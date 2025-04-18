@@ -1,4 +1,4 @@
-module github.com/Cmolloy36/blog_aggregator
+module github.com/Cmolloy36/gator
 
 go 1.24.1
 

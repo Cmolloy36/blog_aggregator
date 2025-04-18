@@ -12,8 +12,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/Cmolloy36/blog_aggregator/internal/config"
-	"github.com/Cmolloy36/blog_aggregator/internal/database"
+	"github.com/Cmolloy36/gator/internal/config"
+	"github.com/Cmolloy36/gator/internal/database"
 	"github.com/google/uuid"
 )
 
